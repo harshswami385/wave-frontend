@@ -54,6 +54,11 @@ function buildInitialBounds() {
   }, {});
 }
 
+function valueBasedExpansion(value, step) {
+  const magnitude = Math.abs(value);
+  return Math.max(magnitude, step);
+}
+
 function InputPanel({ inputs, onInputChange, onCalculate, loading }) {
   const [sliderBounds, setSliderBounds] = useState(buildInitialBounds);
 
@@ -71,12 +76,13 @@ function InputPanel({ inputs, onInputChange, onCalculate, loading }) {
         const bounds = next[field.name] ?? { min: field.min, max: field.max };
         let min = bounds.min;
         let max = bounds.max;
+        const expandBy = valueBasedExpansion(value, field.step);
 
         if (value <= min) {
-          min = value - Math.max(field.step * 40, Math.abs(value) * 0.15, field.step);
+          min = value - expandBy;
         }
         if (value >= max) {
-          max = value + Math.max(field.step * 40, Math.abs(value) * 0.15, field.step);
+          max = value + expandBy;
         }
 
         if (min !== bounds.min || max !== bounds.max) {
@@ -97,7 +103,7 @@ function InputPanel({ inputs, onInputChange, onCalculate, loading }) {
 
     setSliderBounds((prev) => {
       const bounds = prev[field.name] ?? { min: field.min, max: field.max };
-      const expandBy = Math.max(field.step * 40, Math.abs(value) * 0.15, field.step);
+      const expandBy = valueBasedExpansion(value, field.step);
       let min = bounds.min;
       let max = bounds.max;
 
