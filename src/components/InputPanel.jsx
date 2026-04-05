@@ -1,5 +1,3 @@
-import { useEffect, useState } from 'react';
-
 const fieldConfig = [
   {
     icon: '🌊',
@@ -39,102 +37,30 @@ const fieldConfig = [
   },
 ];
 
-function stepDecimals(step) {
-  const value = String(step);
-  if (!value.includes('.')) {
-    return 0;
-  }
-  return value.split('.')[1].length;
-}
+function getDynamicSliderBounds(field, currentValue) {
+  const value = Number.isFinite(currentValue) ? currentValue : field.min;
+  const baseMin = field.min;
+  const baseMax = field.max;
 
-function buildInitialBounds() {
-  return fieldConfig.reduce((acc, field) => {
-    acc[field.name] = { min: field.min, max: field.max };
-    return acc;
-  }, {});
-}
+  // Expand bounds when slider reaches an edge, so users can keep dragging without a hard cap.
+  const precision = field.step < 0.01 ? 3 : field.step < 0.1 ? 2 : 1;
+  const round = (n) => Number(n.toFixed(precision));
 
-function valueBasedExpansion(value, step) {
-  const magnitude = Math.abs(value);
-  return Math.max(magnitude, step);
+  const dynamicMin = value <= baseMin ? round(Math.max(0, value * 0.75)) : baseMin;
+  const dynamicMax = value >= baseMax ? round(Math.max(baseMax + field.step * 10, value * 1.25)) : baseMax;
+
+  return { min: dynamicMin, max: dynamicMax };
 }
 
 function InputPanel({ inputs, onInputChange, onCalculate, loading }) {
-  const [sliderBounds, setSliderBounds] = useState(buildInitialBounds);
-
-  useEffect(() => {
-    setSliderBounds((prev) => {
-      let changed = false;
-      const next = { ...prev };
-
-      fieldConfig.forEach((field) => {
-        const value = Number(inputs[field.name]);
-        if (!Number.isFinite(value)) {
-          return;
-        }
-
-        const bounds = next[field.name] ?? { min: field.min, max: field.max };
-        let min = bounds.min;
-        let max = bounds.max;
-        const expandBy = valueBasedExpansion(value, field.step);
-
-        if (value <= min) {
-          min = value - expandBy;
-        }
-        if (value >= max) {
-          max = value + expandBy;
-        }
-
-        if (min !== bounds.min || max !== bounds.max) {
-          changed = true;
-          next[field.name] = { min, max };
-        }
-      });
-
-      return changed ? next : prev;
-    });
-  }, [inputs]);
-
-  const handleRangeChange = (field, rawValue) => {
-    const value = Number(rawValue);
-    if (!Number.isFinite(value)) {
-      return;
-    }
-
-    setSliderBounds((prev) => {
-      const bounds = prev[field.name] ?? { min: field.min, max: field.max };
-      const expandBy = valueBasedExpansion(value, field.step);
-      let min = bounds.min;
-      let max = bounds.max;
-
-      if (value >= bounds.max - field.step * 0.5) {
-        max = bounds.max + expandBy;
-      }
-      if (value <= bounds.min + field.step * 0.5) {
-        min = bounds.min - expandBy;
-      }
-
-      if (min === bounds.min && max === bounds.max) {
-        return prev;
-      }
-
-      return {
-        ...prev,
-        [field.name]: { min, max },
-      };
-    });
-
-    onInputChange(field.name, value);
-  };
-
   return (
     <div className="input-wrap">
       <h3 className="module-subtitle">Wave Generation Parameters</h3>
       {fieldConfig.map((field) => (
         <div className="field-row" key={field.name}>
           {(() => {
-            const bounds = sliderBounds[field.name] ?? { min: field.min, max: field.max };
-            const decimals = stepDecimals(field.step);
+            const currentValue = Number(inputs[field.name]);
+            const bounds = getDynamicSliderBounds(field, currentValue);
 
             return (
               <>
@@ -143,7 +69,7 @@ function InputPanel({ inputs, onInputChange, onCalculate, loading }) {
             <div className="field-header">
               <label htmlFor={field.name}>{field.label}</label>
               <span className="value-pill">
-                {Number(inputs[field.name]).toFixed(decimals)} {field.unit}
+                {Number(inputs[field.name]).toFixed(field.step < 0.01 ? 3 : 1)} {field.unit}
               </span>
             </div>
             <input
@@ -153,15 +79,16 @@ function InputPanel({ inputs, onInputChange, onCalculate, loading }) {
               max={bounds.max}
               step={field.step}
               value={inputs[field.name]}
-              onChange={(event) => handleRangeChange(field, event.target.value)}
+              onChange={(event) => onInputChange(field.name, event.target.value)}
             />
             <div className="range-scale">
-              <span>{Number(bounds.min).toFixed(decimals)}</span>
-              <span>{Number(bounds.max).toFixed(decimals)}</span>
+              <span>{bounds.min}</span>
+              <span>{bounds.max}</span>
             </div>
             <input
               className="number-input"
               type="number"
+              min={field.min}
               step={field.step}
               value={inputs[field.name]}
               onChange={(event) => onInputChange(field.name, event.target.value)}
