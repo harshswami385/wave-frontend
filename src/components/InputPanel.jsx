@@ -37,12 +37,30 @@ const fieldConfig = [
   },
 ];
 
+function getDynamicSliderBounds(field, currentValue) {
+  const value = Number.isFinite(currentValue) ? currentValue : field.min;
+  const baseMin = field.min;
+  const baseMax = field.max;
+
+  // Expand bounds automatically when user types outside the original slider limits.
+  const dynamicMin = value < baseMin ? Math.floor(value * 0.9 * 10) / 10 : baseMin;
+  const dynamicMax = value > baseMax ? Math.ceil(value * 1.1 * 10) / 10 : baseMax;
+
+  return { min: dynamicMin, max: dynamicMax };
+}
+
 function InputPanel({ inputs, onInputChange, onCalculate, loading }) {
   return (
     <div className="input-wrap">
       <h3 className="module-subtitle">Wave Generation Parameters</h3>
       {fieldConfig.map((field) => (
         <div className="field-row" key={field.name}>
+          {(() => {
+            const currentValue = Number(inputs[field.name]);
+            const bounds = getDynamicSliderBounds(field, currentValue);
+
+            return (
+              <>
           <div className="field-icon" aria-hidden="true">{field.icon}</div>
           <div className="field-main">
             <div className="field-header">
@@ -54,26 +72,28 @@ function InputPanel({ inputs, onInputChange, onCalculate, loading }) {
             <input
               id={field.name}
               type="range"
-              min={field.min}
-              max={field.max}
+              min={bounds.min}
+              max={bounds.max}
               step={field.step}
               value={inputs[field.name]}
               onChange={(event) => onInputChange(field.name, event.target.value)}
             />
             <div className="range-scale">
-              <span>{field.min}</span>
-              <span>{field.max}</span>
+              <span>{bounds.min}</span>
+              <span>{bounds.max}</span>
             </div>
             <input
               className="number-input"
               type="number"
               min={field.min}
-              max={field.max}
               step={field.step}
               value={inputs[field.name]}
               onChange={(event) => onInputChange(field.name, event.target.value)}
             />
           </div>
+              </>
+            );
+          })()}
         </div>
       ))}
 
